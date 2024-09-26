@@ -53,7 +53,7 @@ class Minesweeper:
     def new_game(self):
         # Restablecer el juego
         self.game_over = False
-        self.start_time = time.time()  # Corregido: establecer el tiempo de inicio
+        self.start_time = time.time()
         self.score = 0
 
         # Reiniciar el estado del campo y los botones

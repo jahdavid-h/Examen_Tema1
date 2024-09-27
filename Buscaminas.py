@@ -4,40 +4,47 @@
 '''
 
 import tkinter as tk
+from tkinter import messagebox, simpledialog
 import random
-from tkinter import messagebox
 import time
 
-class Minesweeper:
-    def __init__(self, master, rows=10, cols=10, mines=10):
-        self.master = master
-        self.rows = rows
-        self.cols = cols
-        self.mines = mines
-        self.buttons = []
-        self.minefield = []
-        self.game_over = False
-        self.start_time = None
-        self.score = 0
-        self.level_scores = []  # Almacena los puntajes de cada nivel
-        self.total_score = 0  # Puntaje acumulado
+class MinesweeperApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Buscaminas")
+        self.scores = []  # Lista para almacenar los puntajes
+        self.start_screen()
 
-        self.create_menu()  # Menú con opciones
-        self.create_widgets()
-        self.new_game()  # Iniciar el primer juego
+    def start_screen(self):
+        self.clear_window()
+        self.root.geometry("300x300")
 
-    def create_menu(self):
-        menubar = tk.Menu(self.master)
-        self.master.config(menu=menubar)
+        title = tk.Label(self.root, text="Buscaminas", font=("Helvetica", 18, "bold"))
+        title.pack(pady=20)
 
-        # Menú del juego
-        game_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Juego", menu=game_menu)
-        game_menu.add_command(label="Nuevo Juego", command=self.new_game)
-        game_menu.add_command(label="Instrucciones", command=self.show_instructions)
-        game_menu.add_command(label="Ver Puntaje", command=self.show_scores)  # Opción para ver puntajes
-        game_menu.add_separator()
-        game_menu.add_command(label="Salir", command=self.master.quit)
+        btn_start = tk.Button(self.root, text="Iniciar Juego", command=self.choose_mines)
+        btn_start.pack(pady=10)
+
+        btn_instructions = tk.Button(self.root, text="Instrucciones", command=self.show_instructions)
+        btn_instructions.pack(pady=10)
+
+        btn_scores = tk.Button(self.root, text="Puntuaciones", command=self.show_scores)
+        btn_scores.pack(pady=10)
+
+        btn_exit = tk.Button(self.root, text="Salir", command=self.root.quit)
+        btn_exit.pack(pady=10)
+
+    def choose_mines(self):
+        mines = simpledialog.askinteger("Cantidad de Minas", "Ingresa la cantidad de minas:", minvalue=7, maxvalue=99)
+        if mines is not None:
+            self.start_game(mines)
+
+    def start_game(self, mines):
+        self.clear_window()
+        self.game_frame = tk.Frame(self.root)
+        self.game_frame.pack()
+        self.minesweeper = Minesweeper(self.game_frame, self, mines=mines)
+        self.minesweeper.new_game()
 
     def show_instructions(self):
         instructions = (
@@ -50,21 +57,38 @@ class Minesweeper:
         )
         messagebox.showinfo("Instrucciones", instructions)
 
-    def new_game(self):
-        # Restablecer el juego
+    def show_scores(self):
+        if not self.scores:
+            messagebox.showinfo("Puntajes", "No hay puntajes disponibles aún.")
+        else:
+            total_score = sum(self.scores)
+            score_message = "Puntajes por partidas:\n\n"
+            for i, score in enumerate(self.scores, 1):
+                score_message += f"Partida {i}: {score} puntos\n"
+            score_message += f"\nPuntaje total: {total_score} puntos"
+            messagebox.showinfo("Puntajes", score_message)
+
+    def clear_window(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+class Minesweeper:
+    def __init__(self, master, app, rows=10, cols=10, mines=10):
+        self.master = master
+        self.app = app
+        self.rows = rows
+        self.cols = cols
+        self.mines = mines
+        self.buttons = []
+        self.minefield = []
         self.game_over = False
-        self.start_time = time.time()
+        self.start_time = None
         self.score = 0
 
-        # Reiniciar el estado del campo y los botones
-        for row in self.buttons:
-            for button in row:
-                button.config(text="", state="normal", bg="SystemButtonFace", relief=tk.RAISED)
-
-        self.place_mines()  # Colocar minas para el nuevo juego
+        self.create_widgets()
 
     def create_widgets(self):
-        # Crear botones y agregar al grid
+        """Crea el tablero de botones."""
         for row in range(self.rows):
             button_row = []
             for col in range(self.cols):
@@ -74,10 +98,19 @@ class Minesweeper:
                 button_row.append(button)
             self.buttons.append(button_row)
 
+    def new_game(self):
+        """Reinicia el estado del juego sin destruir el tablero."""
+        self.game_over = False
+        self.start_time = time.time()
+        self.score = 0
+        for row in self.buttons:
+            for button in row:
+                button.config(text="", state="normal", bg="SystemButtonFace", relief=tk.RAISED)
+        self.place_mines()
+
     def place_mines(self):
-        # Crear un campo de minas vacío
+        """Coloca minas aleatoriamente en el tablero."""
         self.minefield = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
-        # Colocar minas aleatoriamente
         mines_placed = 0
         while mines_placed < self.mines:
             r = random.randint(0, self.rows - 1)
@@ -85,7 +118,7 @@ class Minesweeper:
             if self.minefield[r][c] == 0:
                 self.minefield[r][c] = -1
                 mines_placed += 1
-        # Calcular los números de las celdas alrededor de las minas
+        # Calcular los números alrededor de las minas
         for r in range(self.rows):
             for c in range(self.cols):
                 if self.minefield[r][c] == -1:
@@ -98,6 +131,7 @@ class Minesweeper:
                 self.minefield[r][c] = count
 
     def on_click(self, row, col):
+        """Maneja el evento de clic en una celda."""
         if self.game_over:
             return
         button = self.buttons[row][col]
@@ -117,6 +151,7 @@ class Minesweeper:
                 messagebox.showinfo("Ganaste", "¡Felicidades! Has encontrado todas las minas.")
 
     def reveal_cells(self, row, col):
+        """Revela celdas vacías recursivamente."""
         if self.buttons[row][col]['text'] != "":
             return
         button = self.buttons[row][col]
@@ -125,28 +160,30 @@ class Minesweeper:
             button.config(text=str(value), state="disabled", relief=tk.SUNKEN)
         else:
             button.config(text="", state="disabled", relief=tk.SUNKEN)
-            # Si el valor es 0, revelar las celdas alrededor
             for i in range(max(0, row - 1), min(self.rows, row + 2)):
                 for j in range(max(0, col - 1), min(self.cols, col + 2)):
                     if self.buttons[i][j]['state'] != "disabled":
                         self.reveal_cells(i, j)
 
     def on_right_click(self, row, col):
+        """Maneja el evento de clic derecho (marcar bandera)."""
         if self.game_over:
             return
         button = self.buttons[row][col]
         if button['text'] == "":
-            button.config(text="F", fg="red")  # Marcar como mina
+            button.config(text="F", fg="red")
         elif button['text'] == "F":
-            button.config(text="")  # Desmarcar
+            button.config(text="")
 
     def reveal_mines(self):
+        """Revela todas las minas después de perder."""
         for r in range(self.rows):
             for c in range(self.cols):
                 if self.minefield[r][c] == -1:
                     self.buttons[r][c].config(text="*", bg="red")
 
     def check_win(self):
+        """Verifica si el jugador ha ganado."""
         for r in range(self.rows):
             for c in range(self.cols):
                 if self.minefield[r][c] != -1 and self.buttons[r][c]['state'] != "disabled":
@@ -154,28 +191,26 @@ class Minesweeper:
         return True
 
     def show_score(self, win, time_elapsed):
+        """Muestra el puntaje y los botones al finalizar el juego."""
         if win:
-            self.score = max(0, 1000 - int(time_elapsed * 10))  # Ejemplo de puntuación basada en tiempo
+            self.score = max(0, 1000 - int(time_elapsed * 10))
             messagebox.showinfo("Puntaje", f"¡Has ganado!\nPuntaje: {self.score}\nTiempo: {int(time_elapsed)} segundos")
         else:
             self.score = 0
             messagebox.showinfo("Puntaje", f"¡Has perdido!\nTiempo: {int(time_elapsed)} segundos")
 
-        # Guardar el puntaje de este nivel y actualizar el puntaje total
-        self.level_scores.append(self.score)
-        self.total_score += self.score
+        # Guardar el puntaje en la lista
+        self.app.scores.append(self.score)
 
-    def show_scores(self):
-        # Mostrar los puntajes por nivel y el puntaje total
-        score_message = "Puntaje por nivel:\n"
-        for i, score in enumerate(self.level_scores):
-            score_message += f"Nivel {i + 1}: {score} puntos\n"
-        score_message += f"\nPuntaje total: {self.total_score} puntos"
-        messagebox.showinfo("Puntajes", score_message)
+        # Mostrar botones de "Nuevo Juego" y "Regresar al Menú"
+        btn_new_game = tk.Button(self.master, text="Nuevo Juego", command=self.app.choose_mines)
+        btn_new_game.grid(row=self.rows + 1, column=0, columnspan=self.cols // 2, pady=10)
 
+        btn_menu = tk.Button(self.master, text="Regresar al Menú", command=self.app.start_screen)
+        btn_menu.grid(row=self.rows + 1, column=self.cols // 2, columnspan=self.cols // 2, pady=10)
 
+# Ejecución de la aplicación
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("Buscaminas")
-    game = Minesweeper(root)
+    app = MinesweeperApp(root)
     root.mainloop()
